@@ -24,8 +24,21 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+
+const checkUserNameExist = async (username) => {
+  const userRef = collection(db, 'users')
+  const q = query(userRef, where("username", '==',username))
+  const querySnapShot = await getDocs(q)
+  return !querySnapShot.empty
+}
+
 const signup = async (username, email, password) => {
   try {
+    const usernameExist = await checkUserNameExist(username)
+    if (usernameExist) {
+      toast.error("User name already taken, please try another")
+      return
+    }
     const res = await createUserWithEmailAndPassword(auth, email, password);
     const user = res.user;
     await setDoc(doc(db, "users", user.uid), {

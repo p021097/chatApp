@@ -1,7 +1,8 @@
 import { useState } from "react";
 import "./Login.css";
 import assets from "../../assets/assets";
-import { signup , login, resetPassword } from "../../config/firebase.js";
+import { signup, login, resetPassword } from "../../config/firebase.js";
+import { toast } from "react-toastify";
 
 const Login = () => {
   const [currState, setCurrState] = useState("Sign up");
@@ -10,13 +11,19 @@ const Login = () => {
   const [password, setPassword] = useState("");
 
   const onSubmitHandler = (event) => {
-    event.preventDefault()
-    if(currState == "Sign up"){
-      signup(username,email,password)
-    }else{
-      login(email, password)
+    event.preventDefault();
+    try {
+      if (currState == "Sign up") {
+        signup(username, email, password);
+        toast.success("Account created successfully");
+      } else {
+        login(email, password);
+        toast.success("Login Successful");
+      }
+    } catch (error) {
+      toast.error(error.message)
     }
-  }
+  };
 
   return (
     <div className="login">
@@ -67,13 +74,13 @@ const Login = () => {
               Create an account{" "}
               <span onClick={() => setCurrState("Sign up")}>Click here</span>
             </p>
-          )}{
-            currState === "Login" 
-            ? <p className="login-toggle">
-            Forgot password ?{" "}
-            <span onClick={() => resetPassword(email)}>Reset here</span>
-          </p> : null
-          }
+          )}
+          {currState === "Login" ? (
+            <p className="login-toggle">
+              Forgot password ?{" "}
+              <span onClick={() => resetPassword(email)}>Reset here</span>
+            </p>
+          ) : null}
         </div>
       </form>
     </div>
