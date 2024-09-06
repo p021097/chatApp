@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import "./LeftSideBar.css";
 import assets from "../../assets/assets";
 import { useNavigate } from "react-router-dom";
@@ -27,48 +27,65 @@ const LeftSideBar = () => {
     setChatUser,
     messegesId,
     setMessagesId,
-    chatVisible, setChatVisible
+    chatVisible,
+    setChatVisible,
   } = useContext(AppContext);
   const [user, setUser] = useState(null);
+  const [searchUsers, setSearchUsers] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const inputHandler = async (e) => {
     try {
-      const input = e.target.value;
+      const input = e.target.value.trim().toLowerCase();
+      setSearchTerm(input); // Update the search term state
       if (input) {
         setShowSearch(true);
         const userRef = collection(db, "users");
-        const q = query(userRef, where("username", "==", input.toLowerCase()));
+        const q = query(userRef, where("username", ">=", input), where("username", "<=", input + "\uf8ff"));
         const querySnap = await getDocs(q);
-        if (!querySnap.empty && querySnap.docs[0].data().id !== userData.id) {
-          let userExist = false;
-          chatData.map((user) => {
-            if (user.rId === querySnap.docs[0].data().id) {
-              userExist = true;
+        const results = [];
+
+        if (!querySnap.empty) {
+          querySnap.forEach((docSnap) => {
+            if (docSnap.data().id !== userData.id) {
+              const existingChat = chatData.some(
+                (chat) => chat.rId === docSnap.data().id
+              );
+              if (!existingChat) {
+                results.push(docSnap.data());
+              }
             }
           });
-          if (!userExist) {
-            setUser(querySnap.docs[0].data());
-          }
+          setSearchUsers(results);
         } else {
-          setUser(null);
+          setSearchUsers([]); // No matching users
         }
       } else {
         setShowSearch(false);
+        setSearchUsers([]);
       }
-    } catch (error) {}
+    } catch (error) {
+      toast.error(error.message);
+    }
   };
 
   const addChat = async () => {
+    if (!user) {
+      toast.error("No user selected");
+      return;
+    }
+  
     const messagesRef = collection(db, "messages");
     const chatsRef = collection(db, "chats");
+  
     try {
       const newMessageRef = doc(messagesRef);
       await setDoc(newMessageRef, {
         createAt: serverTimestamp(),
         messages: [],
       });
-
+  
       await updateDoc(doc(chatsRef, user.id), {
         chatsData: arrayUnion({
           messageId: newMessageRef.id,
@@ -78,6 +95,7 @@ const LeftSideBar = () => {
           messageSeen: true,
         }),
       });
+  
       await updateDoc(doc(chatsRef, userData.id), {
         chatsData: arrayUnion({
           messageId: newMessageRef.id,
@@ -87,18 +105,20 @@ const LeftSideBar = () => {
           messageSeen: true,
         }),
       });
-      const uSnap = await getDoc(doc(db,'users',user.id))
-      const uData = uSnap.data()
+  
+      const uSnap = await getDoc(doc(db, "users", user.id));
+      const uData = uSnap.data();
       setChats({
-        messegesId:newMessageRef.id,
-        lastMessage:"",
-        rId:user.id,
-        updatedAt:Date.now(),
-        messageSeen:true,
-        userData:uData
-      })
-      setShowSearch(false)
-      setChatVisible(true)
+        messegesId: newMessageRef.id,
+        lastMessage: "",
+        rId: user.id,
+        updatedAt: Date.now(),
+        messageSeen: true,
+        userData: uData,
+      });
+  
+      setShowSearch(false);
+      setChatVisible(true);
     } catch (error) {
       toast.error(error.message);
       console.error(error);
@@ -108,35 +128,35 @@ const LeftSideBar = () => {
   const setChats = async (item) => {
     try {
       setMessagesId(item.messageId);
-    setChatUser(item);
-    const userChatsRef = doc(db,'chats',userData.id)
-    const userChatsSnapshot = await getDoc(userChatsRef)
-    const userChatsData = userChatsSnapshot.data()
-    const chatIndex = userChatsData.chatsData.findIndex((c)=>c.messageId === item.messageId)
-    userChatsData.chatsData[chatIndex].messageSeen = true
-    await updateDoc(userChatsRef,{
-      chatsData:userChatsData.chatsData
-    })
-    setChatVisible(true)
+      setChatUser(item);
+      const userChatsRef = doc(db, "chats", userData.id);
+      const userChatsSnapshot = await getDoc(userChatsRef);
+      const userChatsData = userChatsSnapshot.data();
+      const chatIndex = userChatsData.chatsData.findIndex(
+        (c) => c.messageId === item.messageId
+      );
+      userChatsData.chatsData[chatIndex].messageSeen = true;
+      await updateDoc(userChatsRef, {
+        chatsData: userChatsData.chatsData,
+      });
+      setChatVisible(true);
     } catch (error) {
-      toast.error(error.message)
+      toast.error(error.message);
     }
-    
   };
 
-
-  useEffect(()=>{
+  useEffect(() => {
     const updateChatUserData = async () => {
       if (chatUser) {
-        const userRef = doc(db,'users',chatUser.userData.id)
-        const userSanp = await getDoc(userRef)
-        const userData = userSanp.data()
-        setChatUser(prev=>({...prev,userData:userData}))
+        const userRef = doc(db, "users", chatUser.userData.id);
+        const userSanp = await getDoc(userRef);
+        const userData = userSanp.data();
+        setChatUser((prev) => ({ ...prev, userData: userData }));
       }
-    }
+    };
 
-    updateChatUserData()
-  },[chatData])
+    updateChatUserData();
+  }, [chatData]);
 
   return (
     <div className={`ls ${chatVisible ? "hidden" : ""}`}>
@@ -148,7 +168,7 @@ const LeftSideBar = () => {
             <div className="sub-menu">
               <p onClick={() => navigate("/profile")}>Edit profile</p>
               <hr />
-              <p onClick={()=>logout()}>Logout</p>
+              <p onClick={() => logout()}>Logout</p>
             </div>
           </div>
         </div>
@@ -157,27 +177,43 @@ const LeftSideBar = () => {
           <input
             onChange={inputHandler}
             type="text"
-            placeholder="Search here..."
+            placeholder="Search your friends here..."
+            value={searchTerm}
           />
         </div>
       </div>
       <div className="ls-list">
-        {showSearch && user ? (
-          <div onClick={addChat} className="friends add-user">
-            <img src={user.avatar} alt="" />
-            <p>{user.name}</p>
-          </div>
-        ) : (
-          chatData.map((item, idx) => (
-            <div onClick={() => setChats(item)} key={idx} className={`friends ${item.messageSeen || item.messageId === messegesId ? "" : "border"}`}>
-              <img src={item.userData.avatar} alt="" />
-              <div>
-                <p>{item.userData.name}</p>
-                <span>{item.lastMessage}</span>
+        {showSearch && searchUsers.length > 0
+          ? searchUsers.map((usr, idx) => (
+              <div
+                key={idx}
+                onClick={() => {
+                  setUser(usr);
+                  addChat();
+                }}
+                className="friends add-user"
+              >
+                <img src={usr.avatar} alt="" />
+                <p>{usr.name}</p>
               </div>
-            </div>
-          ))
-        )}
+            ))
+          : chatData.map((item, idx) => (
+              <div
+                onClick={() => setChats(item)}
+                key={idx}
+                className={`friends ${
+                  item.messageSeen || item.messageId === messegesId
+                    ? ""
+                    : "border"
+                }`}
+              >
+                <img src={item.userData.avatar} alt="" />
+                <div>
+                  <p>{item.userData.name}</p>
+                  <span>{item.lastMessage}</span>
+                </div>
+              </div>
+            ))}
       </div>
     </div>
   );

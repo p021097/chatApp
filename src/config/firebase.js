@@ -34,11 +34,11 @@ const checkUserNameExist = async (username) => {
 
 const signup = async (username, email, password) => {
   try {
-    const usernameExist = await checkUserNameExist(username)
-    if (usernameExist) {
-      toast.error("User name already taken, please try another")
-      return
-    }
+    // const usernameExist = await checkUserNameExist(username)
+    // if (usernameExist) {
+    //   toast.error("User name already taken, please try another")
+    //   return
+    // }
     const res = await createUserWithEmailAndPassword(auth, email, password);
     const user = res.user;
     await setDoc(doc(db, "users", user.uid), {
